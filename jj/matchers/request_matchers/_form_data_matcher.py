@@ -1,10 +1,11 @@
 from typing import Any, Dict
-from urllib.parse import parse_qs
 
 from packed import packable
 
 from ...requests import Request
 from ...resolvers import Resolver
+from ..attribute_matchers import AttributeMatcher, MultiDictMatcher
+from ._param_matcher import DictOrTupleListOrAttrMatcher
 from ._request_matcher import RequestMatcher
 
 __all__ = ("FormDataMatcher",)
@@ -13,48 +14,57 @@ __all__ = ("FormDataMatcher",)
 @packable("jj.matchers.FormDataMatcher")
 class FormDataMatcher(RequestMatcher):
     """
-    Matches HTTP requests based on a form-urlencoded body field value.
+    Matches HTTP requests based on form data fields.
 
-    This matcher checks if the incoming request body contains a form field
-    with the specified name and exact value.
+    This matcher checks if the incoming request's form data matches
+    a specified set of fields, or a dynamic attribute-based matcher.
+    The body is parsed by aiohttp according to the actual `Content-Type`
+    header, so requests without a form body never produce a match.
     """
 
-    def __init__(self, key: str, value: str, *, resolver: Resolver) -> None:
+    def __init__(self, form_data: DictOrTupleListOrAttrMatcher, *, resolver: Resolver) -> None:
         """
-        Initialize a FormDataMatcher with the form field and resolver.
+        Initialize a FormDataMatcher with the specified form data and resolver.
 
-        :param key: The name of the form field to match.
-        :param value: The expected value of the form field.
+        :param form_data: The form data fields to match against, either as a dictionary,
+                          list of tuples, or a dynamic attribute matcher.
         :param resolver: The resolver responsible for registering this matcher.
         """
         super().__init__(resolver=resolver)
-        self._key = key
-        self._value = value
+        if isinstance(form_data, AttributeMatcher):
+            self._matcher = form_data
+        else:
+            self._matcher = MultiDictMatcher(form_data)
+
+    @property
+    def sub_matcher(self) -> AttributeMatcher:
+        """
+        Return the underlying attribute matcher used for form data matching.
+
+        :return: The matcher that evaluates the request's form data.
+        """
+        return self._matcher
 
     async def match(self, request: Request) -> bool:
         """
-        Determine if the request body contains the expected form field value.
+        Determine if the request's form data matches the expected fields.
 
-        :param request: The HTTP request containing the form body to match.
-        :return: `True` if the form field matches the expected value, otherwise `False`.
+        :param request: The HTTP request containing the form data to match.
+        :return: `True` if the request's form data matches, otherwise `False`.
         """
         try:
-            body_text = await request.text()
+            await request.post()
         except Exception:
             return False
-        params = parse_qs(body_text)
-        return params.get(self._key) == [self._value]
+        return await self._matcher.match(request.post_data)
 
     def __repr__(self) -> str:
         """
         Return a string representation of the FormDataMatcher instance.
 
-        :return: A string describing the class, field, and resolver.
+        :return: A string describing the class, matcher, and resolver.
         """
-        return (
-            f"{self.__class__.__qualname__}"
-            f"(key={self._key!r}, value={self._value!r}, resolver={self._resolver!r})"
-        )
+        return f"{self.__class__.__qualname__}({self._matcher!r}, resolver={self._resolver!r})"
 
     def __packed__(self) -> Dict[str, Any]:
         """
@@ -62,24 +72,19 @@ class FormDataMatcher(RequestMatcher):
 
         :return: A dictionary containing the serialized form of the matcher.
         """
-        return {
-            "key": self._key,
-            "value": self._value,
-        }
+        return {"form_data": self._matcher}
 
     @classmethod
     def __unpacked__(cls, *,
-                     key: str,
-                     value: str,
+                     form_data: DictOrTupleListOrAttrMatcher,
                      resolver: Resolver,
                      **kwargs: Any) -> "FormDataMatcher":
         """
         Unpack a FormDataMatcher instance from its serialized form.
 
-        :param key: The form field name to use for this instance.
-        :param value: The expected form field value.
+        :param form_data: The form data fields to use for this instance.
         :param resolver: The resolver to bind this matcher to.
         :param kwargs: Additional keyword arguments (ignored).
         :return: A new instance of FormDataMatcher.
         """
-        return cls(key, value, resolver=resolver)
+        return cls(form_data, resolver=resolver)

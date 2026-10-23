@@ -146,6 +146,7 @@ def test_import_match_methods():
     from jj import match_path
     from jj import match_header, match_headers
     from jj import match_param, match_params
+    from jj import match_form_data
     from jj import match_all, match_any
     from jj import match
 
@@ -267,6 +268,13 @@ def test_import_logical_matcher():
 
 
 # matchers/request_matchers
+
+
+def test_import_request_form_data_matcher():
+    from jj.matchers.request_matchers import FormDataMatcher
+    from jj.matchers import FormDataMatcher
+    with raises(ImportError):
+        from jj import FormDataMatcher
 
 
 def test_import_request_header_matcher():

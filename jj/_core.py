@@ -142,15 +142,15 @@ def match_param(name: str, value: StrOrAttrMatcher) -> ParamMatcher:
     return ParamMatcher([(name, value)], resolver=resolver)
 
 
-def match_form_data(key: str, value: str) -> FormDataMatcher:
+def match_form_data(key: str, value: StrOrAttrMatcher) -> FormDataMatcher:
     """
-    Match an HTTP request based on a form-urlencoded body field.
+    Match an HTTP request based on a form data field.
 
     :param key: The name of the form field to match.
-    :param value: The expected value of the form field.
+    :param value: The expected value of the field or a matcher for the value.
     :return: A `FormDataMatcher` that will match requests with the specified field value.
     """
-    return FormDataMatcher(key, value, resolver=resolver)
+    return FormDataMatcher([(key, value)], resolver=resolver)
 
 
 def match_all(matchers: List[ResolvableMatcher]) -> AllMatcher:
@@ -176,15 +176,17 @@ def match_any(matchers: List[ResolvableMatcher]) -> AnyMatcher:
 def match(method: Optional[StrOrAttrMatcher] = None,
           path: Optional[StrOrAttrMatcher] = None,
           params: Optional[DictOrTupleListOrAttrMatcher] = None,
-          headers: Optional[DictOrTupleListOrAttrMatcher] = None) -> AllMatcher:
+          headers: Optional[DictOrTupleListOrAttrMatcher] = None,
+          body_params: Optional[DictOrTupleListOrAttrMatcher] = None) -> AllMatcher:
     """
     Match an HTTP request based on multiple criteria such as method, path,
-    query parameters, and headers.
+    query parameters, headers, and form data fields.
 
     :param method: The HTTP method to match (optional).
     :param path: The request path to match (optional).
     :param params: The query parameters to match (optional).
     :param headers: The headers to match (optional).
+    :param body_params: The form data fields to match (optional).
     :return: An `AllMatcher` that matches if all specified conditions are met.
     """
     submatchers: List[ResolvableMatcher] = []
@@ -196,6 +198,8 @@ def match(method: Optional[StrOrAttrMatcher] = None,
         submatchers += [ParamMatcher(params, resolver=resolver)]
     if headers:
         submatchers += [HeaderMatcher(headers, resolver=resolver)]
+    if body_params:
+        submatchers += [FormDataMatcher(body_params, resolver=resolver)]
     return AllMatcher(submatchers, resolver=resolver)
 
 
