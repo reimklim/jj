@@ -12,7 +12,7 @@ from .._test_utils import run
 async def test_mock_form_data_match_urlencoded():
     mock = Mock()
     self_middleware = SelfMiddleware(mock.resolver)
-    matcher, response = jj.match(body_params={"key": "value"}), jj.Response(status=200)
+    matcher, response = jj.match(form_data={"key": "value"}), jj.Response(status=200)
 
     async with run(mock, middlewares=[self_middleware]) as client:
         handler = RemoteMock(client.make_url("/")).create_handler(matcher, response)
@@ -25,7 +25,7 @@ async def test_mock_form_data_match_urlencoded():
 async def test_mock_form_data_match_multipart():
     mock = Mock()
     self_middleware = SelfMiddleware(mock.resolver)
-    matcher, response = jj.match(body_params={"key": "value"}), jj.Response(status=200)
+    matcher, response = jj.match(form_data={"key": "value"}), jj.Response(status=200)
 
     async with run(mock, middlewares=[self_middleware]) as client:
         handler = RemoteMock(client.make_url("/")).create_handler(matcher, response)
@@ -40,7 +40,7 @@ async def test_mock_form_data_match_multipart():
 async def test_mock_form_data_match_wrong_content_type():
     mock = Mock()
     self_middleware = SelfMiddleware(mock.resolver)
-    matcher, response = jj.match(body_params={"key": "value"}), jj.Response(status=200)
+    matcher, response = jj.match(form_data={"key": "value"}), jj.Response(status=200)
 
     async with run(mock, middlewares=[self_middleware]) as client:
         handler = RemoteMock(client.make_url("/")).create_handler(matcher, response)
@@ -51,10 +51,23 @@ async def test_mock_form_data_match_wrong_content_type():
 
 
 @pytest.mark.asyncio
+async def test_mock_form_data_match_json_body():
+    mock = Mock()
+    self_middleware = SelfMiddleware(mock.resolver)
+    matcher, response = jj.match(form_data={"key": "value"}), jj.Response(status=200)
+
+    async with run(mock, middlewares=[self_middleware]) as client:
+        handler = RemoteMock(client.make_url("/")).create_handler(matcher, response)
+        async with handler:
+            resp = await client.post("/", json={"key": "value"})
+            assert resp.status == 404
+
+
+@pytest.mark.asyncio
 async def test_mock_form_data_match_wrong_value():
     mock = Mock()
     self_middleware = SelfMiddleware(mock.resolver)
-    matcher, response = jj.match(body_params={"key": "value"}), jj.Response(status=200)
+    matcher, response = jj.match(form_data={"key": "value"}), jj.Response(status=200)
 
     async with run(mock, middlewares=[self_middleware]) as client:
         handler = RemoteMock(client.make_url("/")).create_handler(matcher, response)
